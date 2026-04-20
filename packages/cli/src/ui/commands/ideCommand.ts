@@ -1,0 +1,287 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import type { Config, IdeClient, File } from '@vivo/bluecode-cli-core';
+import {
+  getIdeInstaller,
+  IDEConnectionStatus,
+  ideContext,
+  GEMINI_CLI_COMPANION_EXTENSION_NAME,
+} from '@vivo/bluecode-cli-core';
+import path from 'node:path';
+import type {
+  CommandContext,
+  SlashCommand,
+  SlashCommandActionReturn,
+} from './types.js';
+import { CommandKind } from './types.js';
+import { SettingScope } from '../../config/settings.js';
+
+function getIdeStatusMessage(ideClient: IdeClient): {
+  messageType: 'info' | 'error';
+  content: string;
+} {
+  const connection = ideClient.getConnectionStatus();
+  switch (connection.status) {
+    case IDEConnectionStatus.Connected:
+      return {
+        messageType: 'info',
+        content: `🟢 已连接到 ${ideClient.getDetectedIdeDisplayName()}`,
+      };
+    case IDEConnectionStatus.Connecting:
+      return {
+        messageType: 'info',
+        content: `🟡 正在连接...`,
+      };
+    default: {
+      let content = `🔴 断开连接`;
+      if (connection?.details) {
+        content += `: ${connection.details}`;
+      }
+      return {
+        messageType: 'error',
+        content,
+      };
+    }
+  }
+}
+
+function formatFileList(openFiles: File[]): string {
+  const basenameCounts = new Map<string, number>();
+  for (const file of openFiles) {
+    const basename = path.basename(file.path);
+    basenameCounts.set(basename, (basenameCounts.get(basename) || 0) + 1);
+  }
+
+  const fileList = openFiles
+    .map((file: File) => {
+      const basename = path.basename(file.path);
+      const isDuplicate = (basenameCounts.get(basename) || 0) > 1;
+      const parentDir = path.basename(path.dirname(file.path));
+      const displayName = isDuplicate
+        ? `${basename} (/${parentDir})`
+        : basename;
+
+      return `  - ${displayName}${file.isActive ? ' (active)' : ''}`;
+    })
+    .join('\n');
+
+  const infoMessage = `
+(Note: The file list is limited to a number of recently accessed files within your workspace and only includes local files on disk)`;
+
+  return `\n\nOpen files:\n${fileList}\n${infoMessage}`;
+}
+
+async function getIdeStatusMessageWithFiles(ideClient: IdeClient): Promise<{
+  messageType: 'info' | 'error';
+  content: string;
+}> {
+  const connection = ideClient.getConnectionStatus();
+  switch (connection.status) {
+    case IDEConnectionStatus.Connected: {
+      let content = `🟢 Connected to ${ideClient.getDetectedIdeDisplayName()}`;
+      const context = ideContext.getIdeContext();
+      const openFiles = context?.workspaceState?.openFiles;
+      if (openFiles && openFiles.length > 0) {
+        content += formatFileList(openFiles);
+      }
+      return {
+        messageType: 'info',
+        content,
+      };
+    }
+    case IDEConnectionStatus.Connecting:
+      return {
+        messageType: 'info',
+        content: `🟡 Connecting...`,
+      };
+    default: {
+      let content = `🔴 Disconnected`;
+      if (connection?.details) {
+        content += `: ${connection.details}`;
+      }
+      return {
+        messageType: 'error',
+        content,
+      };
+    }
+  }
+}
+
+export const ideCommand = (config: Config | null): SlashCommand | null => {
+  if (!config) {
+    return null;
+  }
+  const ideClient = config.getIdeClient();
+  const currentIDE = ideClient.getCurrentIde();
+  if (!currentIDE || !ideClient.getDetectedIdeDisplayName()) {
+    return {
+      name: 'ide',
+      description: '管理 IDE 集成',
+      kind: CommandKind.BUILT_IN,
+      action: (): SlashCommandActionReturn =>
+        ({
+          type: 'message',
+          messageType: 'error',
+          content: `您当前的环境不支持 IDE 集成。要使用此功能，请在以下受支持的 IDE 之一中运行 BlueCode CLI：VS Code 或 VS Code forks。`,
+        }) as const,
+    };
+  }
+
+  const ideSlashCommand: SlashCommand = {
+    name: 'ide',
+    description: 'manage IDE integration',
+    kind: CommandKind.BUILT_IN,
+    subCommands: [],
+  };
+
+  const statusCommand: SlashCommand = {
+    name: 'status',
+    description: 'check status of IDE integration',
+    kind: CommandKind.BUILT_IN,
+    action: async (): Promise<SlashCommandActionReturn> => {
+      const { messageType, content } =
+        await getIdeStatusMessageWithFiles(ideClient);
+      return {
+        type: 'message',
+        messageType,
+        content,
+      } as const;
+    },
+  };
+
+  const installCommand: SlashCommand = {
+    name: 'install',
+    description: `为 ${ideClient.getDetectedIdeDisplayName()} 安装所需的 IDE 配套插件`,
+    kind: CommandKind.BUILT_IN,
+    action: async (context) => {
+      const installer = getIdeInstaller(currentIDE);
+      if (!installer) {
+        context.ui.addItem(
+          {
+            type: 'error',
+            text: `No installer is available for ${ideClient.getDetectedIdeDisplayName()}. Please install the '${GEMINI_CLI_COMPANION_EXTENSION_NAME}' extension manually from the marketplace.`,
+          },
+          Date.now(),
+        );
+        return;
+      }
+
+      context.ui.addItem(
+        {
+          type: 'info',
+          text: `Installing IDE companion...`,
+        },
+        Date.now(),
+      );
+
+      const result = await installer.install();
+      context.ui.addItem(
+        {
+          type: result.success ? 'info' : 'error',
+          text: result.message,
+        },
+        Date.now(),
+      );
+      if (result.success) {
+        context.services.settings.setValue(
+          SettingScope.User,
+          'ide.enabled',
+          true,
+        );
+        // Poll for up to 5 seconds for the extension to activate.
+        for (let i = 0; i < 10; i++) {
+          await config.setIdeModeAndSyncConnection(true);
+          if (
+            ideClient.getConnectionStatus().status ===
+            IDEConnectionStatus.Connected
+          ) {
+            break;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+
+        const { messageType, content } = getIdeStatusMessage(ideClient);
+        if (messageType === 'error') {
+          context.ui.addItem(
+            {
+              type: messageType,
+              text: `Failed to automatically enable IDE integration. To fix this, run the CLI in a new terminal window.`,
+            },
+            Date.now(),
+          );
+        } else {
+          context.ui.addItem(
+            {
+              type: messageType,
+              text: content,
+            },
+            Date.now(),
+          );
+        }
+      }
+    },
+  };
+
+  const enableCommand: SlashCommand = {
+    name: 'enable',
+    description: 'enable IDE integration',
+    kind: CommandKind.BUILT_IN,
+    action: async (context: CommandContext) => {
+      context.services.settings.setValue(
+        SettingScope.User,
+        'ide.enabled',
+        true,
+      );
+      await config.setIdeModeAndSyncConnection(true);
+      const { messageType, content } = getIdeStatusMessage(ideClient);
+      context.ui.addItem(
+        {
+          type: messageType,
+          text: content,
+        },
+        Date.now(),
+      );
+    },
+  };
+
+  const disableCommand: SlashCommand = {
+    name: 'disable',
+    description: 'disable IDE integration',
+    kind: CommandKind.BUILT_IN,
+    action: async (context: CommandContext) => {
+      context.services.settings.setValue(
+        SettingScope.User,
+        'ide.enabled',
+        false,
+      );
+      await config.setIdeModeAndSyncConnection(false);
+      const { messageType, content } = getIdeStatusMessage(ideClient);
+      context.ui.addItem(
+        {
+          type: messageType,
+          text: content,
+        },
+        Date.now(),
+      );
+    },
+  };
+
+  const { status } = ideClient.getConnectionStatus();
+  const isConnected = status === IDEConnectionStatus.Connected;
+
+  if (isConnected) {
+    ideSlashCommand.subCommands = [statusCommand, disableCommand];
+  } else {
+    ideSlashCommand.subCommands = [
+      enableCommand,
+      statusCommand,
+      installCommand,
+    ];
+  }
+
+  return ideSlashCommand;
+};

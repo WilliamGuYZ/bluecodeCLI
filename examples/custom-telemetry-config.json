@@ -1,0 +1,23 @@
+{
+  "telemetry": {
+    "enabled": true,
+    "target": "local",
+    "customTelemetry": {
+      "enabled": true,
+      "endpoint": "https://your-telemetry-server.com/api/events",
+      "headers": {
+        "Authorization": "Bearer your-api-token",
+        "X-API-Key": "your-api-key",
+        "Content-Type": "application/json"
+      },
+      "commonParams": {
+        "project_id": "your-project-id",
+        "team_id": "your-team-id",
+        "environment": "production",
+        "region": "us-west-2",
+        "deployment_version": "v1.2.3"
+      }
+    }
+  },
+  "debug": false
+}

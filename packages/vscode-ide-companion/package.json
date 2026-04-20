@@ -1,0 +1,137 @@
+{
+  "name": "vscode-bluecode-cli",
+  "displayName": "蓝心编码(BlueCode CLI)",
+  "description": "编码更智能，安全更放心",
+  "version": "1.0.0",
+  "publisher": "vivo",
+  "icon": "assets/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/google-gemini/bluecode-cli.git",
+    "directory": "packages/vscode-ide-companion"
+  },
+  "engines": {
+    "vscode": "^1.99.0"
+  },
+  "license": "LICENSE",
+  "preview": true,
+  "categories": [
+    "AI"
+  ],
+  "keywords": [
+    "vivo",
+    "bluecode-cli",
+    "bluecode cli"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "gemini-diff-editable"
+      }
+    ],
+    "commands": [
+      {
+        "command": "bluecode-cli.runBlueCodeCLI",
+        "title": "在终端执行：Blue Code CLI"
+      },
+      {
+        "command": "bluecode-cli.startInRightTerminal",
+        "title": "Run BlueCode CLI",
+        "icon": {
+          "light": "assets/icon.png",
+          "dark": "assets/icon.png"
+        }
+      },
+      {
+        "command": "cli.diff.accept",
+        "title": "bluecode-cli: Accept Diff",
+        "icon": "$(check)"
+      },
+      {
+        "command": "cli.diff.cancel",
+        "title": "BlueCode CLI: Close Diff Editor",
+        "icon": "$(close)"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "cli.diff.accept",
+          "when": "cli.diff.isVisible"
+        },
+        {
+          "command": "cli.diff.cancel",
+          "when": "cli.diff.isVisible"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "bluecode-cli.startInRightTerminal",
+          "when": "resourceScheme == file",
+          "group": "navigation"
+        },
+        {
+          "command": "cli.diff.accept",
+          "when": "cli.diff.isVisible",
+          "group": "navigation"
+        },
+        {
+          "command": "cli.diff.cancel",
+          "when": "cli.diff.isVisible",
+          "group": "navigation"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "cli.diff.accept",
+        "key": "ctrl+s",
+        "when": "cli.diff.isVisible"
+      },
+      {
+        "command": "cli.diff.accept",
+        "key": "cmd+s",
+        "when": "cli.diff.isVisible"
+      }
+    ]
+  },
+  "main": "./dist/extension.cjs",
+  "type": "module",
+  "scripts": {
+    "vscode:prepublish": "npm run generate:notices && npm run check-types && npm run lint && node esbuild.js --production",
+    "build": "npm run compile",
+    "compile": "npm run check-types && npm run lint && node esbuild.js",
+    "watch": "npm-run-all -p watch:*",
+    "watch:esbuild": "node esbuild.js --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "package": "vsce package --no-dependencies",
+    "generate:notices": "node ./scripts/generate-notices.js",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vitest run",
+    "test:ci": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/node": "20.x",
+    "@types/vscode": "^1.99.0",
+    "@typescript-eslint/eslint-plugin": "^8.31.1",
+    "@typescript-eslint/parser": "^8.31.1",
+    "esbuild": "^0.25.3",
+    "eslint": "^9.25.1",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.15.1",
+    "axios": "^1.11.0",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "zod": "^3.25.76"
+  }
+}

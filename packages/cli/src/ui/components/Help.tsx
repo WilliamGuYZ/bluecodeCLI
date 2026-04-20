@@ -1,0 +1,174 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import type React from 'react';
+import { Box, Text } from 'ink';
+import { Colors } from '../colors.js';
+import type { SlashCommand } from '../commands/types.js';
+
+interface Help {
+  commands: readonly SlashCommand[];
+}
+
+export const Help: React.FC<Help> = ({ commands }) => (
+  <Box
+    flexDirection="column"
+    marginBottom={1}
+    borderColor={Colors.Gray}
+    borderStyle="round"
+    padding={1}
+  >
+    {/* Basics */}
+    <Text bold color={Colors.Foreground}>
+      基本:
+    </Text>
+    <Text color={Colors.Foreground}>
+      <Text bold color={Colors.AccentPurple}>
+        Add context
+      </Text>
+      : Use{' '}
+      <Text bold color={Colors.AccentPurple}>
+        @
+      </Text>{' '}
+      to specify files for context (e.g.,{' '}
+      <Text bold color={Colors.AccentPurple}>
+        @src/myFile.ts
+      </Text>
+      ) to target specific files or folders.
+    </Text>
+    <Text color={Colors.Foreground}>
+      <Text bold color={Colors.AccentPurple}>
+        Shell mode
+      </Text>
+      : Execute shell commands via{' '}
+      <Text bold color={Colors.AccentPurple}>
+        !
+      </Text>{' '}
+      (e.g.,{' '}
+      <Text bold color={Colors.AccentPurple}>
+        !npm run start
+      </Text>
+      ) or use natural language (e.g.{' '}
+      <Text bold color={Colors.AccentPurple}>
+        start server
+      </Text>
+      ).
+    </Text>
+
+    <Box height={1} />
+
+    {/* Commands */}
+    <Text bold color={Colors.Foreground}>
+      命令:
+    </Text>
+    {commands
+      .filter((command) => command.description)
+      .map((command: SlashCommand) => (
+        <Box key={command.name} flexDirection="column">
+          <Text color={Colors.Foreground}>
+            <Text bold color={Colors.AccentPurple}>
+              {' '}
+              /{command.name}
+            </Text>
+            {command.description && ' - ' + command.description}
+          </Text>
+          {command.subCommands &&
+            command.subCommands.map((subCommand) => (
+              <Text key={subCommand.name} color={Colors.Foreground}>
+                <Text bold color={Colors.AccentPurple}>
+                  {'   '}
+                  {subCommand.name}
+                </Text>
+                {subCommand.description && ' - ' + subCommand.description}
+              </Text>
+            ))}
+        </Box>
+      ))}
+    <Text color={Colors.Foreground}>
+      <Text bold color={Colors.AccentPurple}>
+        {' '}
+        !{' '}
+      </Text>
+      - shell command
+    </Text>
+
+    <Box height={1} />
+
+    {/* Shortcuts */}
+    <Text bold color={Colors.Foreground}>
+      键盘快捷键:
+    </Text>
+    <Text color={Colors.Foreground}>
+      <Text bold color={Colors.AccentPurple}>
+        Alt+Left/Right
+      </Text>{' '}
+      - Jump through words in the input
+    </Text>
+    <Text color={Colors.Foreground}>
+      <Text bold color={Colors.AccentPurple}>
+        Ctrl+C
+      </Text>{' '}
+      - Quit application
+    </Text>
+    <Text color={Colors.Foreground}>
+      <Text bold color={Colors.AccentPurple}>
+        {process.platform === 'win32' ? 'Ctrl+Enter' : 'Ctrl+J'}
+      </Text>{' '}
+      {process.platform === 'linux'
+        ? '- New line (Alt+Enter works for certain linux distros)'
+        : '- New line'}
+    </Text>
+    <Text color={Colors.Foreground}>
+      <Text bold color={Colors.AccentPurple}>
+        Ctrl+L
+      </Text>{' '}
+      - Clear the screen
+    </Text>
+    <Text color={Colors.Foreground}>
+      <Text bold color={Colors.AccentPurple}>
+        {process.platform === 'darwin' ? 'Ctrl+X / Meta+Enter' : 'Ctrl+X'}
+      </Text>{' '}
+      - Open input in external editor
+    </Text>
+    <Text color={Colors.Foreground}>
+      <Text bold color={Colors.AccentPurple}>
+        Ctrl+Y
+      </Text>{' '}
+      - Toggle YOLO mode
+    </Text>
+    <Text color={Colors.Foreground}>
+      <Text bold color={Colors.AccentPurple}>
+        Enter
+      </Text>{' '}
+      - Send message
+    </Text>
+    <Text color={Colors.Foreground}>
+      <Text bold color={Colors.AccentPurple}>
+        Esc
+      </Text>{' '}
+      - Cancel operation / Clear input (double press)
+    </Text>
+    <Text color={Colors.Foreground}>
+      <Text bold color={Colors.AccentPurple}>
+        Shift+Tab
+      </Text>{' '}
+      - Toggle auto-accepting edits
+    </Text>
+    <Text color={Colors.Foreground}>
+      <Text bold color={Colors.AccentPurple}>
+        Up/Down
+      </Text>{' '}
+      - Cycle through your prompt history
+    </Text>
+    <Box height={1} />
+    <Text color={Colors.Foreground}>
+      有关快捷键的完整列表，请参阅{' '}
+      <Text bold color={Colors.AccentPurple}>
+        https://aicode.vivo.xyz/docs/CLIAgent/%E9%94%AE%E7%9B%98%E5%BF%AB%E6%8D%B7%E9%94%AE/
+      </Text>
+    </Text>
+  </Box>
+);
